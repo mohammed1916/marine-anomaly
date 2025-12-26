@@ -1,0 +1,3 @@
+[submodule "mt-ais-toolbox"]
+	path = mt-ais-toolbox
+	url = https://github.com/mohammed1916/mt-ais-toolbox.git
