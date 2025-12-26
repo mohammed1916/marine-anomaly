@@ -1,0 +1,103 @@
+# .gitignore for Python projects + common DB and video/media files
+
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.env
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+.eggs/
+.wheelhouse/
+parts/
+
+# Test / coverage / caches
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets / env files
+.env.local
+.env.*.local
+secrets.yml
+
+# Common database files and dumps
+*.sqlite3
+*.sqlite
+*.db
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+*.sql
+*.sql.gz
+*.sql.zip
+*.sqldump
+*.dump
+*.bak
+*.backup
+*.gpkg
+
+# Common video/media files (large binaries)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+*.flv
+*.wmv
+*.mpg
+*.mpeg
+*.m4v
+*.3gp
+*.ts
+*.m2ts
+*.iso
+*.img
+
+# Thumbnails / generated previews (often safe to ignore)
+*_thumb.*
+*.thumb.*
+*.preview.*
+
+# Large artifacts / caches you may want to ignore
+media/
+videos/
+uploads/
+
+# Ignore these if you use Python packaging metadata
+*.egg
