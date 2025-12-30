@@ -101,3 +101,37 @@ uploads/
 
 # Ignore these if you use Python packaging metadata
 *.egg
+
+# Dataset files & directories
+data/
+datasets/
+raw_data/
+processed_data/
+data_raw/
+data_processed/
+data_cache/
+cache/
+
+# Common dataset file extensions
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.npz
+*.npy
+*.pkl
+*.pickle
+*.jsonl
+*.ndjson
+*.tfrecord
+*.tfrecords
+*.tar.gz
+*.zip
+*.gz
+*.bz2
+*.xz
+*.mat
+*.sav
+*.qgz
