@@ -104,7 +104,7 @@ uploads/
 
 # Dataset files & directories
 data/
-datasets/
+dataset/
 raw_data/
 processed_data/
 data_raw/
