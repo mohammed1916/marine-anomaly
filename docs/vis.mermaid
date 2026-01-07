@@ -1,0 +1,25 @@
+flowchart TD
+    %% A["Weekly AIS Trajectories (Same Weekday)"] --> 
+    %% B["Observed Route Differences"]
+
+    %% B --> C1["Operational Factors"]
+    %% B --> C2["Environmental Factors"]
+    %% B --> C3["Traffic Interaction"]
+    %% B --> C4["AIS Data Effects"]
+
+    %% C1 --> D["Route Variability Is Expected"]
+    %% C2 --> D
+    %% C3 --> D
+    %% C4 --> D
+
+    D --> E["Modeling Decision: Probabilistic Routes"]
+
+    E --> F1["Spatial Normalization"]
+    E --> F2["Feature-Based Comparison"]
+    E --> F3["Clustering Models"]
+    E --> F4["Anomaly Scoring"]
+
+    F1 --> G["Anomaly Detection Output"]
+    F2 --> G
+    F3 --> G
+    F4 --> G
