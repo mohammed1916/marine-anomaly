@@ -1,0 +1,16 @@
+flowchart TD
+    A["GNSS Constellations<br/>(GPS, Galileo, BDS, GLONASS)"] -->|Ephemeris + Time| B["GPS-SDR-SIM<br/>Synthetic Baseband"]
+    
+    B --> C["SDR Transmitter<br/>(HackRF One)"]
+
+    C -->|RF Signal| D["u-blox GNSS Receiver"]
+
+    D --> E["Raw Observations<br/>(Pseudorange, Doppler,<br/>Carrier Phase, C/N0)"]
+
+    D --> F["PVT Solution<br/>(Position, Velocity, Time)"]
+
+    D --> G["Satellite Information<br/>(C/N0, Elevation, Azimuth)"]
+
+    E --> H["Observation JSON Files"]
+    F --> I["PVT JSON Files"]
+    G --> J["Satellite Info JSON Files"]
