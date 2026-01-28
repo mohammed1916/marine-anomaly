@@ -7,7 +7,6 @@
 #include <cudf/types.hpp>
 #include <cudf/encode.hpp>
 #include <cudf/stream_compaction.hpp>
-#include <cudf/strings/string_view.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
@@ -20,7 +19,13 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cmath>
+#include <string>
+#include <cnpy.h> // For saving .npy
 
+// ------------------------------
+// Config and metadata
+// ------------------------------
 static std::map<int, std::string> MONTH_ABBR = {
     {1,"jan"}, {2,"feb"}, {3,"mar"}, {4,"apr"}, {5,"may"}, {6,"jun"},
     {7,"jul"}, {8,"aug"}, {9,"sep"}, {10,"oct"}, {11,"nov"}, {12,"dec"}
@@ -43,58 +48,46 @@ struct AISConfig {
 };
 
 // ------------------------------
-// Combined mask + clamp kernel
+// CUDA kernel: sliding windows + clamp + NaN
 // ------------------------------
 __global__
-void mask_clamp_kernel(
-    float* speed, float* course,
-    uint8_t* mask,
-    int N
-) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= N) return;
-
-    float s = speed[idx];
-    float c = course[idx];
-
-    // NaN check
-    bool valid = !(isnan(s) || isnan(c));
-    mask[idx] = valid;
-
-    if (valid) {
-        // clamp
-        speed[idx]  = min(max(s, 0.0f), 100.0f);
-        course[idx] = min(max(c, 0.0f), 360.0f);
-    }
-}
-
-// ------------------------------
-// Sliding window kernel
-// ------------------------------
-__global__
-void sliding_window_kernel(
+void fused_mask_clamp_window_kernel(
     const int* vessel_id,
     const float* lat,
     const float* lon,
-    const float* speed,
-    const float* course,
+    float* speed,
+    float* course,
     const float* ts,
     int N,
     int window_size,
     float* out_windows,
-    int* out_vid
+    int* out_vids
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N - window_size + 1) return;
 
-    // check same vessel for full window
     int vid = vessel_id[idx];
-    if (vessel_id[idx + window_size - 1] != vid) return;
+    if (vessel_id[idx + window_size - 1] != vid) return; // same vessel
 
     int base = idx * window_size * 5;
+    bool valid_window = true;
 
     for (int j = 0; j < window_size; ++j) {
         int r = idx + j;
+
+        float s = speed[r];
+        float c = course[r];
+
+        // NaN check + clamp
+        if (isnan(s) || isnan(c)) {
+            valid_window = false;
+            break;
+        }
+
+        speed[r]  = fminf(fmaxf(s, 0.0f), 100.0f);
+        course[r] = fminf(fmaxf(c, 0.0f), 360.0f);
+
+        // write sliding window
         out_windows[base + j * 5 + 0] = lat[r];
         out_windows[base + j * 5 + 1] = lon[r];
         out_windows[base + j * 5 + 2] = speed[r];
@@ -102,36 +95,41 @@ void sliding_window_kernel(
         out_windows[base + j * 5 + 4] = ts[r];
     }
 
-    out_vid[idx] = vid;
+    out_vids[idx] = valid_window ? vid : -1;
 }
 
 // ------------------------------
-// Main processing
+// Save .npy file helper
+// ------------------------------
+void save_npy(const std::string& filename, const std::vector<float>& data,
+              int num_windows, int window_size, int features) {
+    // reshape flat vector into [num_windows, window_size, features] automatically handled by .npy
+    cnpy::npy_save(filename, &data[0], {num_windows, window_size, features}, "w");
+}
+
+void save_vids(const std::string& filename, const std::vector<int>& vids) {
+    cnpy::npy_save(filename, &vids[0], {static_cast<int>(vids.size())}, "w");
+}
+
+// ------------------------------
+// Main GPU processing
 // ------------------------------
 void process_month_gpu(int year, int month, const AISConfig& cfg) {
-
     std::string file_path = cfg.root + "/unipi_ais_dynamic_" + std::to_string(year) +
                             "/unipi_ais_dynamic_" + MONTH_ABBR[month] + std::to_string(year) + ".csv";
 
-    auto options = cudf::io::csv_reader_options::builder(
-                       cudf::io::source_info(file_path))
-                       .header(0)
-                       .use_cols(cols_alias)
-                       .byte_range_size(cfg.chunk_size);
+    auto options = cudf::io::csv_reader_options::builder(cudf::io::source_info(file_path))
+                   .header(0)
+                   .use_cols(cols_alias)
+                   .byte_range_size(cfg.chunk_size);
 
     auto table = cudf::io::read_csv(options);
 
-    // rename t -> timestamp if exists
+    // rename t -> timestamp
     auto col_names = table->view().column_names();
-    bool has_t = false;
-    for (auto &n : col_names) if (n == "t") has_t = true;
+    for (auto &n : col_names) if (n == "t") n = "timestamp";
 
-    if (has_t) {
-        for (auto &n : col_names) if (n == "t") n = "timestamp";
-        table = cudf::table::concatenate({table->view()}, cudf::table::column_names(col_names));
-    }
-
-    // cast timestamp -> float seconds
+    // cast timestamp -> float
     auto ts_col = table->view().column(cudf::column_view::find_column(table->view(), "timestamp"));
     auto ts_float = cudf::cast(ts_col, cudf::data_type(cudf::type_id::FLOAT32));
 
@@ -139,7 +137,7 @@ void process_month_gpu(int year, int month, const AISConfig& cfg) {
     auto encoded = cudf::dictionary::encode(table->view().column("vessel_id"));
     auto vessel_id_col = encoded->get_dictionary_column();
 
-    // gather table to include encoded vessel_id and ts_float
+    // gather relevant columns
     auto gathered = cudf::table_view({
         vessel_id_col->view(),
         table->view().column(cudf::column_view::find_column(table->view(), "lat")),
@@ -157,51 +155,51 @@ void process_month_gpu(int year, int month, const AISConfig& cfg) {
     auto sorted = cudf::gather(gathered, *sorted_order);
 
     int N = sorted.num_rows();
+    int num_windows = N - cfg.window_size + 1;
+    if (num_windows <= 0) return;
 
-    // Create mask array
-    rmm::device_uvector<uint8_t> mask(N, rmm::cuda_stream_default);
-
-    // run combined mask+clamp kernel
-    int threads = 256;
-    int blocks = (N + threads - 1) / threads;
-    mask_clamp_kernel<<<blocks, threads>>>(
-        sorted.column(3).data<float>(), // speed
-        sorted.column(4).data<float>(), // course
-        mask.data(),
-        N
-    );
-    cudaDeviceSynchronize();
-
-    // apply boolean mask (compact)
-    auto filtered = cudf::apply_boolean_mask(sorted, mask);
-
-    // update N
-    int Nf = filtered.num_rows();
-
-    // allocate output windows
-    int num_windows = Nf - cfg.window_size + 1;
     rmm::device_uvector<float> windows(num_windows * cfg.window_size * 5, rmm::cuda_stream_default);
     rmm::device_uvector<int> vids(num_windows, rmm::cuda_stream_default);
 
-    // generate sliding windows
-    int wblocks = (num_windows + threads - 1) / threads;
-    sliding_window_kernel<<<wblocks, threads>>>(
-        filtered.column(0).data<int>(),   // vessel_id
-        filtered.column(1).data<float>(), // lat
-        filtered.column(2).data<float>(), // lon
-        filtered.column(3).data<float>(), // speed
-        filtered.column(4).data<float>(), // course
-        filtered.column(5).data<float>(), // timestamp
-        Nf,
+    int threads = 256;
+    int blocks = (num_windows + threads - 1) / threads;
+
+    fused_mask_clamp_window_kernel<<<blocks, threads>>>(
+        sorted.column(0).data<int>(),   // vessel_id
+        sorted.column(1).data<float>(), // lat
+        sorted.column(2).data<float>(), // lon
+        sorted.column(3).data<float>(), // speed
+        sorted.column(4).data<float>(), // course
+        sorted.column(5).data<float>(), // timestamp
+        N,
         cfg.window_size,
         windows.data(),
         vids.data()
     );
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) std::cerr << "Kernel error: " << cudaGetErrorString(err) << "\n";
+
     cudaDeviceSynchronize();
 
-    std::cout << "Generated " << num_windows << " windows on GPU\n";
+    // copy back to CPU
+    std::vector<float> host_windows(windows.size());
+    cudaMemcpy(host_windows.data(), windows.data(), windows.size() * sizeof(float), cudaMemcpyDeviceToHost);
+
+    std::vector<int> host_vids(vids.size());
+    cudaMemcpy(host_vids.data(), vids.data(), vids.size() * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // save as .npy files
+    save_npy(cfg.root + "/windows_" + std::to_string(year) + "_" + MONTH_ABBR[month] + ".npy",
+             host_windows, num_windows, cfg.window_size, 5);
+    save_vids(cfg.root + "/vids_" + std::to_string(year) + "_" + MONTH_ABBR[month] + ".npy",
+              host_vids);
+
+    std::cout << "Processed month " << MONTH_ABBR[month] << " " << year
+              << " | Generated windows: " << num_windows << "\n";
 }
 
+// ------------------------------
+// Main
 // ------------------------------
 int main() {
     AISConfig cfg;
@@ -215,6 +213,6 @@ int main() {
         }
     }
 
-    std::cout << "GPU processing completed\n";
+    std::cout << "GPU preprocessing completed.\n";
     return 0;
 }
