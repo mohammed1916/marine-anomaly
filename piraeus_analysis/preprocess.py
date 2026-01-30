@@ -26,7 +26,7 @@ class AISConfig:
         self.chunk_size = chunk_size
         self.window_size = window_size
 
-# ------------------------------
+# ------------------------------  
 # CUDA kernel: sliding windows + clamp + NaN
 # ------------------------------
 @cuda.jit
