@@ -139,3 +139,7 @@ cache/
 *.vsidx
 .vs/*
 .github/*
+
+cnpy/*
+*.pt
+*.pkl
