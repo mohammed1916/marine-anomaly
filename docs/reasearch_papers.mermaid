@@ -1,0 +1,101 @@
+%% flowchart TD
+%%     A["Train a CAE on normal SAR"] --> 
+%%     B["Reconstruction fails on RFI"] -->
+%%     C["Anomaly heatmap finds RFI"] -->
+%%     D["Localize it"] -->
+%%     E["Extract radar characteristics from level-0 data"]
+
+%% flowchart TD
+%%     A["Sentinel-1 SAR quick-look images (VV+VH)"] --> 
+%%     B["Train CAE on RFI-free images (normal scenes)"]
+%%     B --> C["Reconstruct test images"]
+%%     C --> D["Compute reconstruction heatmap (anomaly regions)"]
+%%     D --> E["Classify anomalies as RFI using domain knowledge"]
+%%     E --> F["Localize RFI signals (swath + burst level)"]
+%%     F --> G["Extract radar characteristics from Level-0 data (PRF, pulse length, modulation)"]
+%%     G --> H["Find stationary or ship-borne radars to improve maritime awareness"]
+
+%% flowchart TD
+%%     A["Sentinel-1 SAR acquisition (IW GRD VV/VH)"] -->
+%%     B["RFI artefacts appear in SAR image (stripes / distortions)"] -->
+%%     C["Automatic RFI detection & localisation"] -->
+%%     D["Estimate spatial extent of RFI source"] -->
+%%     E["Analyse Level-0 SAR data"] -->
+%%     F["Extract radar parameters:
+%%        • Frequency
+%%        • Pulse width
+%%        • PRF
+%%        • Polarisation"] -->
+%%     G["Infer radar type & operating mode"] -->
+%%     H["Hypothesise emitting platform (e.g. warship radar)"] -->
+%%     I["Enhanced Maritime Domain Awareness (MDA)"]
+
+%% flowchart TD
+%%     A[SAR imagery] --> B[Length, width, deck height]
+%%     B -->|shadows & layover| C[Above-water geometry]
+%%     D[AIS metadata] --> E[Draught]
+%%     C --> F[Displacement estimate]
+%%     E --> F
+%%     G["Hull shape + water density\n(assumed/known)"] --> F
+%%     F -->|Archimedes' principle| H[Total ship mass]
+%%     H --> I[Subtract empty ship mass]
+%%     I --> J[Cargo mass]
+
+%% sequenceDiagram
+%%     participant User as Satellite Image
+%%     participant ModelA as Classification Model
+%%     participant ModelB as Localization Model
+%%     participant ModelC as Object Detection Model
+
+%%     User->>ModelA: Input full image
+%%     ModelA-->>User: Output: ship present / not present
+%%     Note over ModelA: Only detects existence<br>Not location or count
+
+%%     User->>ModelB: Input full image
+%%     ModelB-->>User: Output: ship location (single)
+%%     Note over ModelB: Assumes one object<br>Limited to one ship
+
+%%     User->>ModelC: Input full image
+%%     ModelC-->>User: Output: multiple ships + locations
+%%     Note over ModelC: Detects multiple objects<br>Preferred method
+
+%% flowchart TD
+%%     A["SAR Images (Sentinel-1)"] --> B["Normalize + Convert to 8-bit"]
+%%     B --> C["Train lightweight YOLOv8-like model"]
+%%     C --> D["Use atrous + depth-wise convolutions"]
+%%     D --> E["Anchor-free object detection"]
+%%     E --> F["Detect ships onboard satellite"]
+%%     F --> G["Output bounding boxes + ship locations"]
+%%     G --> H["Downlink only detected ship info (fast)"]
+
+
+
+flowchart TB
+    B[Read Raw AIS CSV files cudf]
+    B --> C[Rename t → timestamp]
+    C --> D[Type normalization]
+    D --> E[Vessel ID factorization]
+    E --> F[Sort by vessel_id and timestamp]
+    F --> G[Sliding Window Construction]
+
+    subgraph Sliding_Window ["Sliding Window Construction"]
+        direction TB
+        G1[Create overlapping windows]
+
+        subgraph Validity_Checks ["Physical Validity Checks"]
+            direction TB
+            V1[Check: speed not NaN & 0 ≤ speed ≤ 100]
+            V2[Check: course not NaN & 0 ≤ course ≤ 360]
+            V3[Check: vessel_id consistent across window]
+        end
+
+        G1 --> Validity_Checks
+        Validity_Checks -->|all checks pass| G2[GPU processing: RMM + CuPy + Numba]
+        Validity_Checks -->|any check fails| X[Mark window invalid / discard]
+        G2 --> Y[Trajectory windows]
+    end
+
+    Y --> J[Monthly Zarr store]
+
+
+
