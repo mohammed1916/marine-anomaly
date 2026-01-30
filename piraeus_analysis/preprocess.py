@@ -5,6 +5,7 @@ import cupy as cp
 import numba
 from numba import cuda
 import math
+import tensorstore as ts
 
 # ------------------------------
 # Config and metadata
@@ -30,7 +31,7 @@ rmm.reinitialize(
 class AISConfig:
     def __init__(self, root, chunk_size, window_size):
         self.root = root
-        self.chunk_size = chunk_size
+        self.chunk_size = chunk_size  # max windows per batch
         self.window_size = window_size
 
 # ------------------------------  
@@ -59,19 +60,9 @@ def fused_mask_clamp_window_kernel(vessel_id, lat, lon, speed, course, ts,
             valid_window = False
             break
 
-        if s < 0.0:
-            s = 0.0
-        elif s > 100.0:
-            s = 100.0
-
-        if c < 0.0:
-            c = 0.0
-        elif c > 360.0:
-            c = 360.0
-
-
-        # speed[r] = s
-        # course[r] = c
+        # clamp values
+        s = min(max(s, 0.0), 100.0)
+        c = min(max(c, 0.0), 360.0)
 
         out_windows[base + j*5 + 0] = lat[r]
         out_windows[base + j*5 + 1] = lon[r]
@@ -82,15 +73,8 @@ def fused_mask_clamp_window_kernel(vessel_id, lat, lon, speed, course, ts,
     out_vids[idx] = vid if valid_window else -1
 
 # ------------------------------
-# Save .npy helpers
+# RMM → CuPy helper
 # ------------------------------
-def save_npy(filename, data, num_windows, window_size, features):
-    arr = cp.asnumpy(data).reshape(num_windows, window_size, features)
-    np.save(filename, arr)
-
-def save_vids(filename, vids):
-    np.save(filename, cp.asnumpy(vids))
-
 def rmm_to_memptr(buf):
     """Converts an RMM DeviceBuffer to a CuPy MemoryPointer."""
     return cp.cuda.MemoryPointer(cp.cuda.UnownedMemory(buf.ptr, buf.size, buf), 0)
@@ -104,7 +88,6 @@ def process_month_gpu(year, month, cfg):
     df = cudf.read_csv(file_path)
     df = df.rename(columns={"t": "timestamp"})
     df["timestamp"] = df["timestamp"].astype("float32")
-
     df["vessel_id"], _ = df["vessel_id"].factorize()
 
     gathered = df[["vessel_id", "lat", "lon", "speed", "course", "timestamp"]]
@@ -115,16 +98,16 @@ def process_month_gpu(year, month, cfg):
     if num_windows <= 0:
         return
 
-    # Allocate device memory and wrap with CuPy arrays
+    # Allocate device memory
     windows_buf = rmm.DeviceBuffer(size=num_windows * cfg.window_size * 5 * np.dtype(np.float32).itemsize)
     vids_buf    = rmm.DeviceBuffer(size=num_windows * np.dtype(np.int32).itemsize)
 
     windows = cp.ndarray(shape=(num_windows * cfg.window_size * 5,), dtype=np.float32, memptr=rmm_to_memptr(windows_buf))
     vids    = cp.ndarray(shape=(num_windows,), dtype=np.int32, memptr=rmm_to_memptr(vids_buf))
 
+    # Launch kernel
     threads = 256
     blocks = (num_windows + threads - 1) // threads
-
     fused_mask_clamp_window_kernel[blocks, threads](
         gathered["vessel_id"].to_cupy(),
         gathered["lat"].to_cupy(),
@@ -139,11 +122,39 @@ def process_month_gpu(year, month, cfg):
     )
     cuda.synchronize()
 
-    save_npy(f"{cfg.root}/windows_{year}_{MONTH_ABBR[month]}.npy",
-             cp.asnumpy(windows),
-             num_windows, cfg.window_size, 5)
-    save_vids(f"{cfg.root}/vids_{year}_{MONTH_ABBR[month]}.npy",
-              cp.asnumpy(vids))
+    # ------------------------------
+    # TensorStore: chunked write to avoid OOM
+    # ------------------------------
+    store = ts.open({
+        "driver": "zarr",
+        "kvstore": {"driver": "file", "path": f"{cfg.root}/windows_{year}_{MONTH_ABBR[month]}.zarr"},
+        "dtype": "float32",
+        "shape": (num_windows, cfg.window_size, 5),
+        "chunk_shape": (cfg.chunk_size, cfg.window_size, 5)
+    }, create=True, open=True).result()
+
+    vid_store = ts.open({
+        "driver": "zarr",
+        "kvstore": {"driver": "file", "path": f"{cfg.root}/vids_{year}_{MONTH_ABBR[month]}.zarr"},
+        "dtype": "int32",
+        "shape": (num_windows,),
+        "chunk_shape": (cfg.chunk_size,)
+    }, create=True, open=True).result()
+
+    # batch sliding-window write
+    stride = cfg.window_size * 5
+    for start in range(0, num_windows, cfg.chunk_size):
+        end = min(start + cfg.chunk_size, num_windows)
+        batch_size = end - start
+
+        windows_chunk = windows[start*stride:end*stride]
+        vids_chunk = vids[start:end]
+
+        windows_host = cp.asnumpy(windows_chunk).reshape(batch_size, cfg.window_size, 5)
+        vids_host = cp.asnumpy(vids_chunk)
+
+        store[start:end, :, :] = windows_host
+        vid_store[start:end] = vids_host
 
     print(f"Processed month {MONTH_ABBR[month]} {year} | Generated windows: {num_windows}")
 
