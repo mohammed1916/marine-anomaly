@@ -1,8 +1,10 @@
 import cudf
 import rmm
 import numpy as np
+import cupy as cp
 import numba
 from numba import cuda
+import math
 
 # ------------------------------
 # Config and metadata
@@ -19,6 +21,11 @@ DATA_PERIODS = [
 ]
 
 COLS_ALIAS = ["t","timestamp","vessel_id","lon","lat","speed","course","heading"]
+
+rmm.reinitialize(
+    pool_allocator=True,
+    managed_memory=False
+)
 
 class AISConfig:
     def __init__(self, root, chunk_size, window_size):
@@ -48,15 +55,23 @@ def fused_mask_clamp_window_kernel(vessel_id, lat, lon, speed, course, ts,
         s = speed[r]
         c = course[r]
 
-        if np.isnan(s) or np.isnan(c):
+        if math.isnan(s) or math.isnan(c):
             valid_window = False
             break
 
-        s = min(max(s, 0.0), 100.0)
-        c = min(max(c, 0.0), 360.0)
+        if s < 0.0:
+            s = 0.0
+        elif s > 100.0:
+            s = 100.0
 
-        speed[r] = s
-        course[r] = c
+        if c < 0.0:
+            c = 0.0
+        elif c > 360.0:
+            c = 360.0
+
+
+        # speed[r] = s
+        # course[r] = c
 
         out_windows[base + j*5 + 0] = lat[r]
         out_windows[base + j*5 + 1] = lon[r]
@@ -70,11 +85,15 @@ def fused_mask_clamp_window_kernel(vessel_id, lat, lon, speed, course, ts,
 # Save .npy helpers
 # ------------------------------
 def save_npy(filename, data, num_windows, window_size, features):
-    arr = np.array(data).reshape(num_windows, window_size, features)
+    arr = cp.asnumpy(data).reshape(num_windows, window_size, features)
     np.save(filename, arr)
 
 def save_vids(filename, vids):
-    np.save(filename, np.array(vids))
+    np.save(filename, cp.asnumpy(vids))
+
+def rmm_to_memptr(buf):
+    """Converts an RMM DeviceBuffer to a CuPy MemoryPointer."""
+    return cp.cuda.MemoryPointer(cp.cuda.UnownedMemory(buf.ptr, buf.size, buf), 0)
 
 # ------------------------------
 # Main GPU processing
@@ -82,7 +101,7 @@ def save_vids(filename, vids):
 def process_month_gpu(year, month, cfg):
     file_path = f"{cfg.root}/unipi_ais_dynamic_{year}/unipi_ais_dynamic_{MONTH_ABBR[month]}{year}.csv"
 
-    df = cudf.read_csv(file_path, usecols=COLS_ALIAS, byte_range_size=cfg.chunk_size)
+    df = cudf.read_csv(file_path)
     df = df.rename(columns={"t": "timestamp"})
     df["timestamp"] = df["timestamp"].astype("float32")
 
@@ -96,19 +115,23 @@ def process_month_gpu(year, month, cfg):
     if num_windows <= 0:
         return
 
-    windows = rmm.device_array(num_windows * cfg.window_size * 5, dtype=np.float32)
-    vids = rmm.device_array(num_windows, dtype=np.int32)
+    # Allocate device memory and wrap with CuPy arrays
+    windows_buf = rmm.DeviceBuffer(size=num_windows * cfg.window_size * 5 * np.dtype(np.float32).itemsize)
+    vids_buf    = rmm.DeviceBuffer(size=num_windows * np.dtype(np.int32).itemsize)
+
+    windows = cp.ndarray(shape=(num_windows * cfg.window_size * 5,), dtype=np.float32, memptr=rmm_to_memptr(windows_buf))
+    vids    = cp.ndarray(shape=(num_windows,), dtype=np.int32, memptr=rmm_to_memptr(vids_buf))
 
     threads = 256
     blocks = (num_windows + threads - 1) // threads
 
     fused_mask_clamp_window_kernel[blocks, threads](
-        gathered["vessel_id"].to_array(),
-        gathered["lat"].to_array(),
-        gathered["lon"].to_array(),
-        gathered["speed"].to_array(),
-        gathered["course"].to_array(),
-        gathered["timestamp"].to_array(),
+        gathered["vessel_id"].to_cupy(),
+        gathered["lat"].to_cupy(),
+        gathered["lon"].to_cupy(),
+        gathered["speed"].to_cupy(),
+        gathered["course"].to_cupy(),
+        gathered["timestamp"].to_cupy(),
         N,
         cfg.window_size,
         windows,
@@ -117,10 +140,10 @@ def process_month_gpu(year, month, cfg):
     cuda.synchronize()
 
     save_npy(f"{cfg.root}/windows_{year}_{MONTH_ABBR[month]}.npy",
-             windows.copy_to_host(),
+             cp.asnumpy(windows),
              num_windows, cfg.window_size, 5)
     save_vids(f"{cfg.root}/vids_{year}_{MONTH_ABBR[month]}.npy",
-              vids.copy_to_host())
+              cp.asnumpy(vids))
 
     print(f"Processed month {MONTH_ABBR[month]} {year} | Generated windows: {num_windows}")
 
