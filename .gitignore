@@ -143,3 +143,6 @@ cache/
 cnpy/*
 *.pt
 *.pkl
+vessel-trajectory-anomaly-detection
+vcpkg
+cnpy
