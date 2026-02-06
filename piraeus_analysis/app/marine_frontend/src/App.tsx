@@ -13,6 +13,7 @@ import {
 
 import { computeArrow } from "./components/Arrows";
 
+
 type AISRow = {
   t: number;
   vessel_id: string;
@@ -289,7 +290,7 @@ function App() {
         {timeRange && (
           <>
             <label>
-              Start: {timeRange[0]}
+              Start: {new Date(timeRange[0]).toLocaleString()}
               <input
                 type="range"
                 min={minTimestamp}
@@ -302,7 +303,7 @@ function App() {
             </label>
 
             <label>
-              End: {timeRange[1]}
+              End: {new Date(timeRange[1]).toLocaleString()}
               <input
                 type="range"
                 min={timeRange[0]}
