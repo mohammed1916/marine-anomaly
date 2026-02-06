@@ -1,7 +1,15 @@
+// marine_frontend/src/App.tsx
 import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LatLngExpression } from "leaflet";
+import {
+  SpeedLegend,
+  colorBySpeed,
+  SPEED_RANGES,
+  type SpeedRange,
+} from "./components/SpeedLegend";
+
 
 type AISRow = {
   t: number;
@@ -144,6 +152,7 @@ function App() {
   const filteredData = aisData.filter((r) => {
     if (showOnlyStopped && r.speed !== 0) return false;
     if (r.t < timeRange[0] || r.t > timeRange[1]) return false;
+    console.log("r: ", r);
     return true;
   });
 
@@ -243,6 +252,7 @@ function App() {
         </label>
       </div>
 
+
       <div style={{ marginBottom: "1rem" }}>
         {timeRange && (
           <>
@@ -287,10 +297,15 @@ function App() {
               key={i}
               center={[row.lat, row.lon]}
               radius={3}
-              pathOptions={{ color: "red", fill: true }}
+              pathOptions={{
+                color: colorBySpeed(row.speed),
+                fillColor: colorBySpeed(row.speed),
+                fillOpacity: 0.9,
+              }}
             />
           ))}
         </MapContainer>
+        <SpeedLegend />
       </div>
     </div>
   );
