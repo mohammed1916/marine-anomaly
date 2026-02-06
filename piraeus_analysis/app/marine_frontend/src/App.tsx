@@ -1,6 +1,6 @@
 // marine_frontend/src/App.tsx
-import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, CircleMarker } from "react-leaflet";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { MapContainer, TileLayer, CircleMarker, Polyline} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LatLngExpression } from "leaflet";
 import {
@@ -10,6 +10,7 @@ import {
   type SpeedRange,
 } from "./components/SpeedLegend";
 
+import { computeArrow } from "./components/Arrows";
 
 type AISRow = {
   t: number;
@@ -304,6 +305,36 @@ function App() {
               }}
             />
           ))}
+          {filteredData.map((row, i) => (
+            <Fragment key={i}>
+              <CircleMarker
+                center={[row.lat, row.lon]}
+                radius={3}
+                pathOptions={{
+                  color: colorBySpeed(row.speed),
+                  fillColor: colorBySpeed(row.speed),
+                  fillOpacity: 0.9,
+                }}
+              />
+
+              {/* Heading arrow - Blue */}
+              {row.heading !== undefined && (
+                <Polyline
+                  positions={computeArrow(row.lat, row.lon, row.heading, 0.002)}
+                  pathOptions={{ color: "blue", weight: 2 }}
+                />
+              )}
+
+              {/* Course arrow - Red */}
+              {row.course !== undefined && (
+                <Polyline
+                  positions={computeArrow(row.lat, row.lon, row.course, 0.002)}
+                  pathOptions={{ color: "red", weight: 2 }}
+                />
+              )}
+            </Fragment>
+          ))}
+
         </MapContainer>
         <SpeedLegend />
       </div>
