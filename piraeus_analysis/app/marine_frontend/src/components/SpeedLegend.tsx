@@ -7,11 +7,11 @@ export type SpeedRange = {
 };
 
 export const SPEED_RANGES: SpeedRange[] = [
-  { min: 0,  max: 2,  color: "#2c7bb6", label: "0 – 2 kn" },
-  { min: 2,  max: 5,  color: "#abd9e9", label: "2 – 5 kn" },
+  { min: 0,  max: 2,  color: "#bc2fd2", label: "0 – 2 kn" },
+  { min: 2,  max: 5,  color: "#2c7bb6", label: "2 – 5 kn" },
   { min: 5,  max: 10, color: "#ffffbf", label: "5 – 10 kn" },
   { min: 10, max: 20, color: "#fdae61", label: "10 – 20 kn" },
-  { min: 20, max: null, color: "#d7191c", label: "≥ 20 kn" },
+  { min: 20, max: null, color: "#67d1d1", label: "≥ 20 kn" },
 ];
 
 export function colorBySpeed(speed?: number): string {
