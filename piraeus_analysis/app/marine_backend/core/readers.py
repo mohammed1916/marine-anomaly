@@ -1,14 +1,56 @@
+# marine_backend/core/readers.py
 import pandas as pd
-from marine_backend.core.parquet_store import pq_file, num_rows
+from marine_backend.core.parquet_store import PARQUET_DIR
+import pyarrow.parquet as pq
 
-def read_row(row_idx: int) -> pd.Series:
-    if row_idx < 0 or row_idx >= num_rows:
-        raise IndexError("Row index out of bounds")
+# Load all Parquet files
+parquet_files = list(PARQUET_DIR.glob("*.parquet"))
 
-    cum = 0
+# Preload all rows into memory (optional, only if dataset fits in RAM)
+_all_rows: list[dict] = []
+
+for f in parquet_files:
+    pq_file = pq.ParquetFile(f)
     for g in range(pq_file.num_row_groups):
-        rg = pq_file.metadata.row_group(g).num_rows
-        if row_idx < cum + rg:
+        table = pq_file.read_row_group(g)
+        df = table.to_pandas()
+        _all_rows.extend(df.to_dict(orient="records"))
+
+def read_time_window(start_ts: int, end_ts: int) -> pd.DataFrame:
+    """
+    Return all rows with t between start_ts and end_ts across all files.
+    """
+    frames = []
+    for f in parquet_files:
+        pq_file = pq_file = pq.ParquetFile(f)
+        for g in range(pq_file.num_row_groups):
             table = pq_file.read_row_group(g)
-            return table.to_pandas().iloc[row_idx - cum]
-        cum += rg
+            df = table.to_pandas()
+            col = "t" if "t" in df.columns else "timestamp"
+            mask = (df[col] >= start_ts) & (df[col] <= end_ts)
+            if mask.any():
+                frames.append(df.loc[mask])
+    if frames:
+        return pd.concat(frames, ignore_index=True)
+    return pd.DataFrame()
+
+def read_row(file: str, idx: int) -> dict:
+    """
+    Read a single row by index from a parquet file.
+    """
+    pq_file = pq.ParquetFile(PARQUET_DIR / file)
+
+    offset = 0
+    for g in range(pq_file.num_row_groups):
+        rg = pq_file.metadata.row_group(g)
+        n = rg.num_rows
+
+        if offset + n > idx:
+            table = pq_file.read_row_group(g)
+            df = table.to_pandas()
+            return df.iloc[idx - offset].to_dict()
+
+        offset += n
+
+    raise IndexError("Row index out of range")
+

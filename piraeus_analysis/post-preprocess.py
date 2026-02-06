@@ -4,6 +4,31 @@ from pathlib import Path
 from typing import Tuple
 
 
+from pathlib import Path
+import tensorstore as ts
+
+root = Path(r"/mnt/c/Users/BBBS-AI-01/d/anomaly/dataset/piraeus/processed")
+path = root / "windows_2019_dec.zarr"
+
+# Open TensorStore
+windows = ts.open(
+    {
+        "driver": "zarr",
+        "kvstore": {"driver": "file", "path": str(path)},
+    },
+    open=True,
+).result()
+
+# Inspect
+print("TensorStore shape:", windows.shape)
+print("TensorStore dtype:", windows.dtype)
+
+# Optionally, read the first window to confirm
+first_window = windows[0].read().result()
+print("First window shape:", first_window.shape)
+print("First window data (timestamps in last column):", first_window[:, 4])
+
+
 def open_windows_store(path: Path) -> ts.TensorStore:
     """
     Open a Zarr TensorStore containing AIS windows.
@@ -54,9 +79,16 @@ def sample_timestamp_gaps(
 
     idx = np.random.choice(n, size=sample_n, replace=False)
 
-    ts_data = windows[idx, :, 4].read().result()
+    # Read the full sampled windows
+    sampled_windows = windows[idx, :, :].read().result()  # shape: (sample_n, window_size, 5)
+
+    # Extract the timestamp column (last column)
+    ts_data = sampled_windows[:, :, 4]  # shape: (sample_n, window_size)
+
+    # Compute differences along each window
     gaps = np.diff(ts_data, axis=1)
 
+    # Flatten to 1D array
     return gaps.reshape(-1)
 
 
@@ -85,33 +117,25 @@ def summarize_gaps(gaps: np.ndarray) -> Tuple[float, float, float]:
 
 def main():
     """
-    Entry point: sample timestamp gaps across all months.
+    Entry point: sample timestamp gaps for a single month.
     """
     root = Path(
         r"/mnt/c/Users/BBBS-AI-01/d/anomaly/dataset/piraeus/processed"
     )
 
-    all_gaps = []
-
-    # for path in sorted(root.glob("windows_*.zarr")):
-    # for path in sorted(root.glob("windows_2019_dec.zarr")):
-    path = root.glob("windows_2019_dec.zarr")
+    # Single month
+    path = root / "windows_2019_dec.zarr"
     windows = open_windows_store(path)
-    gaps = sample_timestamp_gaps(windows)
-    all_gaps.append(gaps)
 
+    gaps = sample_timestamp_gaps(windows)
     mean_g, med_g, p90_g = summarize_gaps(gaps)
+
     print(
         f"{path.name}: mean={mean_g:.2f}s "
         f"median={med_g:.2f}s p90={p90_g:.2f}s"
     )
 
-    all_gaps = np.concatenate(all_gaps)
-
-    mean_g, med_g, p90_g = summarize_gaps(all_gaps)
-    print("\nGLOBAL")
-    print(f"mean={mean_g:.2f}s median={med_g:.2f}s p90={p90_g:.2f}s")
-
 
 if __name__ == "__main__":
-    main()
+    # main()
+    pass
