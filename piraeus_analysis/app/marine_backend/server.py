@@ -1,6 +1,9 @@
+# marine_backend/server.py
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from marine_backend.routes.stream_rows import router as stream_router
+from marine_backend.routes.stream_rows_time import router as stream_router_time
 
 app = FastAPI()
 
@@ -13,7 +16,21 @@ app.add_middleware(
 )
 
 app.include_router(stream_router)
+app.include_router(stream_router_time)
+
+PARQUET_DIR = Path("./marine_backend/parquet")  
 
 @app.get("/files")
 def get_files():
-    return [{"name": "unipi_ais_dynamic_may2017.parquet"}]
+    files = []
+    for pq_file in sorted(PARQUET_DIR.rglob("*.parquet")):
+        # optional: include relative path so frontend can identify year
+        files.append({"name": str(pq_file.relative_to(PARQUET_DIR))})
+    return files
+
+if __name__ == "__main__":
+    files = []
+    for pq_file in sorted(PARQUET_DIR.rglob("*.parquet")):
+        # optional: include relative path so frontend can identify year
+        files.append({"name": str(pq_file.relative_to(PARQUET_DIR))})
+    print(files)

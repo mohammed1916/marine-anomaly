@@ -1,6 +1,11 @@
+# marine_backend/core/parquet_store.py
 import pyarrow.parquet as pq
+from pathlib import Path
 
-PARQUET_FILE = "./marine_backend/unipi_ais_dynamic_may2017.parquet"
+PARQUET_DIR = Path("./marine_backend/parquet")
 
-pq_file = pq.ParquetFile(PARQUET_FILE)
-num_rows = pq_file.metadata.num_rows
+parquet_files = list(PARQUET_DIR.glob("*.parquet"))
+
+for f in parquet_files:
+    pq_file = pq.ParquetFile(f)
+    print(f"{f.name}: {pq_file.metadata.num_rows} rows")
