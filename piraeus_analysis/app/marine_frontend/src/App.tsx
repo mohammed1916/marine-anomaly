@@ -21,6 +21,11 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(
     localStorage.getItem("lastSelectedParquet")
   );
+
+  const [startIdx, setStartIdx] = useState(0);
+  const [endIdx, setEndIdx] = useState(100);
+
+
   const [showOnlyStopped, setShowOnlyStopped] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -50,7 +55,7 @@ function App() {
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    const res = await fetch(`http://localhost:8000/rows/stream?file=${encodeURIComponent(selectedFile)}&start=0&end=100`, {
+    const res = await fetch(`http://localhost:8000/rows/stream?file=${encodeURIComponent(selectedFile)}&start=${startIdx}&end=${endIdx}`, {
       signal: controller.signal,
     });
 
@@ -132,9 +137,12 @@ function App() {
   };
 
   /** Filter AIS data */
-  const filteredData = showOnlyStopped
-    ? aisData.filter((r) => r.speed === 0)
-    : aisData;
+  const filteredData = aisData.filter((r) => {
+    if (showOnlyStopped && r.speed !== 0) return false;
+    if (r.t < timeRange[0] || r.t > timeRange[1]) return false;
+    return true;
+  });
+
 
   /** Map center */
   const mapCenter: LatLngExpression =
@@ -176,9 +184,24 @@ function App() {
           🔄
         </button>
 
+        <input
+          type="number"
+          value={startIdx}
+          onChange={(e) => setStartIdx(Number(e.target.value))}
+          disabled={loading}
+        />
+
+        <input
+          type="number"
+          value={endIdx}
+          onChange={(e) => setEndIdx(Number(e.target.value))}
+          disabled={loading}
+        />
+
         <button onClick={handleLoad} disabled={loading}>
-          Load
+          Load rows
         </button>
+
 
         <button onClick={handleLoadByTime} disabled={loading}>
           Load Time Window
