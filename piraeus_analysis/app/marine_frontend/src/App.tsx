@@ -101,7 +101,7 @@ function App() {
     const [start_ts, end_ts] = timeRange;
 
     const res = await fetch(
-      `http://localhost:8000/rows/stream_time?start_ts=${start_ts}&end_ts=${end_ts}`,
+      `http://localhost:8000/rows/stream_time?file=${encodeURIComponent(selectedFile)}&start_ts=${start_ts}&end_ts=${end_ts}`,
       { signal: controller.signal }
     );
 

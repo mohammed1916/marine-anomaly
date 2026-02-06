@@ -16,22 +16,26 @@ for f in parquet_files:
         df = table.to_pandas()
         _all_rows.extend(df.to_dict(orient="records"))
 
-def read_time_window(start_ts: int, end_ts: int) -> pd.DataFrame:
+def read_time_window(file: str, start_ts: int, end_ts: int) -> pd.DataFrame:
     """
-    Return all rows with t between start_ts and end_ts across all files.
+    Return rows with t in [start_ts, end_ts] from a single parquet file.
     """
+    pq_file = pq.ParquetFile(PARQUET_DIR / file)
     frames = []
-    for f in parquet_files:
-        pq_file = pq_file = pq.ParquetFile(f)
-        for g in range(pq_file.num_row_groups):
-            table = pq_file.read_row_group(g)
-            df = table.to_pandas()
-            col = "t" if "t" in df.columns else "timestamp"
-            mask = (df[col] >= start_ts) & (df[col] <= end_ts)
-            if mask.any():
-                frames.append(df.loc[mask])
+
+    for g in range(pq_file.num_row_groups):
+        table = pq_file.read_row_group(g)
+        df = table.to_pandas()
+
+        col = "t" if "t" in df.columns else "timestamp"
+        mask = (df[col] >= start_ts) & (df[col] <= end_ts)
+
+        if mask.any():
+            frames.append(df.loc[mask])
+
     if frames:
         return pd.concat(frames, ignore_index=True)
+
     return pd.DataFrame()
 
 def read_row(file: str, idx: int) -> dict:
