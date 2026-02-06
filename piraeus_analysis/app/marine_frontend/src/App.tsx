@@ -34,6 +34,8 @@ function App() {
   const [startIdx, setStartIdx] = useState(0);
   const [endIdx, setEndIdx] = useState(100);
 
+  const [showHeading, setShowHeading] = useState(true);
+  const [showCourse, setShowCourse] = useState(true);
 
   const [showOnlyStopped, setShowOnlyStopped] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -253,6 +255,25 @@ function App() {
         </label>
       </div>
 
+      <label style={{ marginLeft: "1rem" }}>
+        <input
+          type="checkbox"
+          checked={showHeading}
+          onChange={(e) => setShowHeading(e.target.checked)}
+        />
+        Show Heading
+      </label>
+
+      <label style={{ marginLeft: "1rem" }}>
+        <input
+          type="checkbox"
+          checked={showCourse}
+          onChange={(e) => setShowCourse(e.target.checked)}
+        />
+        Show Course
+      </label>
+
+
 
       <div style={{ marginBottom: "1rem" }}>
         {timeRange && (
@@ -318,7 +339,7 @@ function App() {
               />
 
               {/* Heading arrow - Blue */}
-              {row.heading !== undefined && (
+              {showHeading && row.heading !== undefined && (
                 <Polyline
                   positions={computeArrow(row.lat, row.lon, row.heading, 0.002)}
                   pathOptions={{ color: "blue", weight: 2 }}
@@ -326,7 +347,7 @@ function App() {
               )}
 
               {/* Course arrow - Red */}
-              {row.course !== undefined && (
+              {showCourse && row.course !== undefined && (
                 <Polyline
                   positions={computeArrow(row.lat, row.lon, row.course, 0.002)}
                   pathOptions={{ color: "red", weight: 2 }}
