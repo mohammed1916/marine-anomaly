@@ -32,3 +32,13 @@ def stream_rows_time(
             ) + "\n"
 
     return StreamingResponse(generator(), media_type="text/plain")
+
+@router.get("/rows/time_bounds")
+def time_bounds(file: str):
+    df = read_time_window(file, -10**18, 10**18)
+    col = "t" if "t" in df.columns else "timestamp"
+    return {
+        "min": int(df[col].min()),
+        "max": int(df[col].max()),
+    }
+

@@ -29,7 +29,7 @@ function App() {
   const [showOnlyStopped, setShowOnlyStopped] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [timeRange, setTimeRange] = useState<[number, number]>([0, 0]);
+  const [timeRange, setTimeRange] = useState<[number, number] | null>(null);
   const [minTimestamp, setMinTimestamp] = useState(0);
   const [maxTimestamp, setMaxTimestamp] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
@@ -98,6 +98,10 @@ function App() {
     const controller = new AbortController();
     controllerRef.current = controller;
 
+    if (!timeRange){
+      alert("no time range")
+      return
+    }
     const [start_ts, end_ts] = timeRange;
 
     const res = await fetch(
@@ -164,6 +168,21 @@ function App() {
     }
   }, [aisData]);
 
+  useEffect(() => {
+    console.log("selectedFile: ", selectedFile);
+    if (!selectedFile) return;
+
+    fetch(
+      `http://localhost:8000/rows/time_bounds?file=${encodeURIComponent(selectedFile)}`
+    )
+      .then(r => r.json())
+      .then(({ min, max }) => {
+        setMinTimestamp(min);
+        setMaxTimestamp(max);
+        setTimeRange([min, max]);
+      });
+  }, [selectedFile]);
+
   return (
     <div style={{ padding: "1rem", maxWidth: "900px", margin: "0 auto" }}>
       <h1 style={{ marginBottom: "2rem", textAlign: "center" }}>Marine AIS Data</h1>
@@ -225,19 +244,36 @@ function App() {
       </div>
 
       <div style={{ marginBottom: "1rem" }}>
-        <label>
-          Time Slider: {timeRange[0]} → {timeRange[1]}
-          <input
-            type="range"
-            min={minTimestamp}
-            max={maxTimestamp}
-            value={timeRange[1]}
-            onChange={(e) =>
-              setTimeRange([timeRange[0], Number(e.target.value)])
-            }
-            style={{ width: "100%" }}
-          />
-        </label>
+        {timeRange && (
+          <>
+            <label>
+              Start: {timeRange[0]}
+              <input
+                type="range"
+                min={minTimestamp}
+                max={timeRange[1]}
+                value={timeRange[0]}
+                onChange={(e) =>
+                  setTimeRange([Number(e.target.value), timeRange[1]])
+                }
+              />
+            </label>
+
+            <label>
+              End: {timeRange[1]}
+              <input
+                type="range"
+                min={timeRange[0]}
+                max={maxTimestamp}
+                value={timeRange[1]}
+                onChange={(e) =>
+                  setTimeRange([timeRange[0], Number(e.target.value)])
+                }
+              />
+            </label>
+          </>
+        )}
+
       </div>
 
       <div style={{ height: "500px", width: "100%" }}>
