@@ -12,6 +12,7 @@ import {
 } from "./components/SpeedLegend";
 
 import { computeArrow } from "./components/Arrows";
+import { LoadingButton } from "./components/LoadingButton";
 
 
 type AISRow = {
@@ -285,7 +286,10 @@ function App() {
       </label>
 
 
-      <button onClick={loadHeatmap}>Load Heatmap</button>
+      <LoadingButton onClick={loadHeatmap} loading={loading}>
+        Load Heatmap
+      </LoadingButton>
+
       <div style={{ marginBottom: "1rem" }}>
         {timeRange && (
           <>
