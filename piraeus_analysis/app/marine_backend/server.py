@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from marine_backend.routes.stream_rows import router as stream_router
 from marine_backend.routes.stream_rows_time import router as stream_router_time
+from marine_backend.routes.heatmap import router as heatmap_router
 
 app = FastAPI()
 
@@ -17,6 +18,7 @@ app.add_middleware(
 
 app.include_router(stream_router)
 app.include_router(stream_router_time)
+app.include_router(heatmap_router)
 
 PARQUET_DIR = Path("./marine_backend/parquet")  
 

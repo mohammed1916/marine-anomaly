@@ -1,6 +1,7 @@
 // marine_frontend/src/App.tsx
 import { useState, useEffect, useRef, Fragment } from "react";
 import { MapContainer, TileLayer, CircleMarker, Polyline} from "react-leaflet";
+import { HeatmapLayer } from "react-leaflet-heatmap-layer-v3";
 import "leaflet/dist/leaflet.css";
 import type { LatLngExpression } from "leaflet";
 import {
@@ -43,6 +44,7 @@ function App() {
   const [timeRange, setTimeRange] = useState<[number, number] | null>(null);
   const [minTimestamp, setMinTimestamp] = useState(0);
   const [maxTimestamp, setMaxTimestamp] = useState(0);
+  const [heatmapPoints, setHeatmapPoints] = useState<{ lat: number; lng: number; count: number }[]>([]);
   const controllerRef = useRef<AbortController | null>(null);
 
   /** Fetch available Parquet files */
@@ -149,6 +151,14 @@ function App() {
   const handleStop = () => {
     controllerRef.current?.abort();
     setLoading(false);
+  };
+
+  const loadHeatmap = async () => {
+  const res = await fetch(
+      `http://localhost:8000/heatmap?file=${encodeURIComponent(selectedFile)}&start_ts=${timeRange[0]}&end_ts=${timeRange[1]}&cell_size=0.001`
+    );
+    const points = await res.json();
+    setHeatmapPoints(points);
   };
 
   /** Filter AIS data */
@@ -274,7 +284,7 @@ function App() {
       </label>
 
 
-
+      <button onClick={loadHeatmap}>Load Heatmap</button>
       <div style={{ marginBottom: "1rem" }}>
         {timeRange && (
           <>
@@ -355,6 +365,15 @@ function App() {
               )}
             </Fragment>
           ))}
+          <HeatmapLayer
+            points={heatmapPoints ||[]}
+            longitudeExtractor={(p) => p[1]}
+            latitudeExtractor={(p) => p[0]}
+            intensityExtractor={(p) => p[2]}
+            radius={15}       // adjust size
+            blur={20}         // smoothness
+            max={1}           // max intensity for normalization
+          />
 
         </MapContainer>
         <SpeedLegend />
