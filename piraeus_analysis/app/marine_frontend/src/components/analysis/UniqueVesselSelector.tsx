@@ -1,0 +1,124 @@
+// marine_frontend/src/components/UniqueVesselSelector.tsx
+import { useState } from "react";
+import Plot from "react-plotly.js";
+
+type ParquetFile = { name: string };
+
+interface Props {
+  files: ParquetFile[];
+  loading: boolean;
+}
+
+interface FileSelection {
+  id: number;
+  file: string | null;
+}
+
+export default function UniqueVesselSelector({ files, loading }: Props) {
+  const [selections, setSelections] = useState<FileSelection[]>([
+    { id: 1, file: null },
+  ]);
+  const [progress, setProgress] = useState<number>(0);
+  const [results, setResults] = useState<Record<string, number>>({});
+
+  const addField = () => {
+    setSelections([...selections, { id: Date.now(), file: null }]);
+  };
+
+  const updateField = (id: number, value: string) => {
+    setSelections(
+      selections.map((s) => (s.id === id ? { ...s, file: value } : s))
+    );
+  };
+
+  const removeField = (id: number) => {
+    setSelections(selections.filter((s) => s.id !== id));
+  };
+
+  const selectedFiles = selections
+    .map((s) => s.file)
+    .filter((f): f is string => f !== null);
+
+  const availableFiles = (currentId: number) => {
+    const selectedOther = selections
+      .filter((s) => s.id !== currentId)
+      .map((s) => s.file)
+      .filter((f): f is string => f !== null);
+    return files.filter((f) => !selectedOther.includes(f.name));
+  };
+
+  const fetchUniqueVessels = async () => {
+    if (selectedFiles.length === 0) return;
+    setProgress(0);
+    setResults({});
+    const controller = new AbortController();
+
+    const res = await fetch(
+      `http://localhost:8000/unique-vessels-multi`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: selectedFiles }),
+        signal: controller.signal,
+      }
+    );
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const msg = JSON.parse(line); // { file: string, unique_vessels: number, progress: number }
+        setResults((prev) => ({ ...prev, [msg.file]: msg.unique_vessels }));
+        setProgress(msg.progress);
+      }
+    }
+  };
+
+  return (
+    <div>
+      <h2>Unique Vessel Analysis</h2>
+      {selections.map((s) => (
+        <div key={s.id} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <select
+            value={s.file || ""}
+            onChange={(e) => updateField(s.id, e.target.value)}
+            disabled={loading}
+          >
+            <option value="">Select file…</option>
+            {availableFiles(s.id).map((f) => (
+              <option key={f.name} value={f.name}>{f.name}</option>
+            ))}
+          </select>
+          <button onClick={() => removeField(s.id)} disabled={loading}>🗑️</button>
+        </div>
+      ))}
+      <button onClick={addField} disabled={loading}>➕ Add file</button>
+      <button onClick={fetchUniqueVessels} disabled={loading || selectedFiles.length === 0}>Find Unique Vessels</button>
+
+      <div style={{ marginTop: "1rem" }}>
+        Progress: {progress}%
+        {Object.keys(results).length > 0 && (
+          <Plot
+            data={[{
+              x: Object.keys(results),
+              y: Object.values(results),
+              type: "bar"
+            }]}
+            layout={{ title: "Unique vessels per file", xaxis: { title: "File" }, yaxis: { title: "Count" } }}
+            style={{ width: "100%", height: "400px" }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -13,6 +13,9 @@ import {
 
 import { computeArrow } from "./components/Arrows";
 import { LoadingButton } from "./components/LoadingButton";
+// import MultiParquetAnalysis from "./components/analysis/MultiParquetAnalysis";
+import LoadModeSelector from "./components/LoadMode";
+import UniqueVesselSelector from "./components/analysis/UniqueVesselSelector";
 
 
 type AISRow = {
@@ -168,16 +171,16 @@ function App() {
     setHeatmapPoints(points);
   };
 
-  const loadUniqueVessels = async () => {
-    if (!selectedFile) return;
+  // const loadUniqueVessels = async () => {
+  //   if (!selectedFile) return;
 
-    const res = await fetch(
-      `http://localhost:8000/unique-vessels?file=${encodeURIComponent(selectedFile)}`
-    );
+  //   const res = await fetch(
+  //     `http://localhost:8000/unique-vessels?file=${encodeURIComponent(selectedFile)}`
+  //   );
 
-    const data = await res.json();
-    setUniqueVessels(data.unique_vessels);
-  };
+  //   const data = await res.json();
+  //   setUniqueVessels(data.unique_vessels);
+  // };
 
 
   /** Filter AIS data */
@@ -246,79 +249,13 @@ function App() {
 
 
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-  <label>
-    <input
-      type="radio"
-      checked={loadMode === "index"}
-      onChange={() => setLoadMode("index")}
-    />
-    By index
-  </label>
-
-  <label>
-    <input
-      type="radio"
-      checked={loadMode === "time"}
-      onChange={() => setLoadMode("time")}
-    />
-    By time
-  </label>
-</div>
-          {loadMode === "index" && (
-  <>
-    <input
-      type="number"
-      value={startIdx}
-      onChange={(e) => setStartIdx(Number(e.target.value))}
-      disabled={loading}
-    />
-
-    <input
-      type="number"
-      value={endIdx}
-      onChange={(e) => setEndIdx(Number(e.target.value))}
-      disabled={loading}
-    />
-
-    <button onClick={handleLoad} disabled={loading}>
-      Load rows
-    </button>
-  </>
-)}
-
-{loadMode === "time" && timeRange && (
-  <div style={{ marginBottom: "1rem" }}>
-    <label>
-      Start: {new Date(timeRange[0]).toLocaleString()}
-      <input
-        type="range"
-        min={minTimestamp}
-        max={timeRange[1]}
-        value={timeRange[0]}
-        onChange={(e) =>
-          setTimeRange([Number(e.target.value), timeRange[1]])
-        }
-      />
-    </label>
-
-    <label>
-      End: {new Date(timeRange[1]).toLocaleString()}
-      <input
-        type="range"
-        min={timeRange[0]}
-        max={maxTimestamp}
-        value={timeRange[1]}
-        onChange={(e) =>
-          setTimeRange([timeRange[0], Number(e.target.value)])
-        }
-      />
-    </label>
-
-    <button onClick={handleLoadByTime} disabled={loading}>
-      Load Time Window
-    </button>
-  </div>
-)}
+        <LoadModeSelector
+          loading={loading}
+          minTimestamp={minTimestamp}   
+          maxTimestamp={maxTimestamp}   
+          onLoadByIndex={handleLoad}
+          onLoadByTime={handleLoadByTime} 
+        />
 
 
   
@@ -364,6 +301,7 @@ function App() {
           Load Heatmap
         </LoadingButton>
       )}
+      </div>
 
 
       
@@ -374,7 +312,7 @@ function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap contributors"
           />
-          {filteredData.map((row, i) => (
+          {/* {filteredData.map((row, i) => (
             <CircleMarker
               key={i}
               center={[row.lat, row.lon]}
@@ -385,7 +323,7 @@ function App() {
                 fillOpacity: 0.9,
               }}
             />
-          ))}
+          ))} */}
           {filteredData.map((row, i) => (
             <Fragment key={i}>
               <CircleMarker
@@ -430,18 +368,9 @@ function App() {
 
       </div>
         <hr style={{ margin: "2rem 0" }} />
+        <UniqueVesselSelector files={files} loading={loading} />
 
-        <h2>Unique Vessels (Statistics)</h2>
-
-        <button onClick={loadUniqueVessels}>
-          Load Unique Vessel Count
-        </button>
-
-        {uniqueVessels !== null && (
-          <p>
-            <strong>Unique vessels:</strong> {uniqueVessels}
-          </p>
-        )}
+        {/* <MultiParquetAnalysis /> */}
     </div>
   );
 }

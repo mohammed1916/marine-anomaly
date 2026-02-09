@@ -2,6 +2,7 @@
 import pandas as pd
 from marine_backend.core.parquet_store import PARQUET_DIR
 import pyarrow.parquet as pq
+from marine_backend.utils.data_process import sanitize_row
 
 # Load all Parquet files
 parquet_files = list(PARQUET_DIR.glob("*.parquet"))
@@ -37,6 +38,24 @@ def read_time_window(file: str, start_ts: int, end_ts: int) -> pd.DataFrame:
         return pd.concat(frames, ignore_index=True)
 
     return pd.DataFrame()
+
+# def read_multiple_files(files: list[str], start_ts: int = None, end_ts: int = None) -> list[dict]:
+#     frames = []
+
+#     for file in files:
+#         pq_file = pq.ParquetFile(PARQUET_DIR / file)
+#         for g in range(pq_file.num_row_groups):
+#             df = pq_file.read_row_group(g).to_pandas()
+
+#             if start_ts is not None and end_ts is not None:
+#                 col = "t" if "t" in df.columns else "timestamp"
+#                 df = df[(df[col] >= start_ts) & (df[col] <= end_ts)]
+
+#             if not df.empty:
+#                 frames.extend([sanitize_row(r) for r in df.to_dict(orient="records")])
+
+#     return frames
+
 
 def read_row(file: str, idx: int) -> dict:
     """
