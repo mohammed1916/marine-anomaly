@@ -13,7 +13,6 @@ import {
 
 import { computeArrow } from "./components/Arrows";
 import { LoadingButton } from "./components/LoadingButton";
-// import MultiParquetAnalysis from "./components/analysis/MultiParquetAnalysis";
 import LoadModeSelector from "./components/LoadMode";
 import UniqueVesselSelector from "./components/analysis/UniqueVesselSelector";
 
@@ -171,16 +170,7 @@ function App() {
     setHeatmapPoints(points);
   };
 
-  // const loadUniqueVessels = async () => {
-  //   if (!selectedFile) return;
-
-  //   const res = await fetch(
-  //     `http://localhost:8000/unique-vessels?file=${encodeURIComponent(selectedFile)}`
-  //   );
-
-  //   const data = await res.json();
-  //   setUniqueVessels(data.unique_vessels);
-  // };
+ 
 
 
   /** Filter AIS data */
@@ -370,7 +360,6 @@ function App() {
         <hr style={{ margin: "2rem 0" }} />
         <UniqueVesselSelector files={files} loading={loading} />
 
-        {/* <MultiParquetAnalysis /> */}
     </div>
   );
 }
