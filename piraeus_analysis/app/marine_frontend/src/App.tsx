@@ -47,6 +47,7 @@ function App() {
   const [minTimestamp, setMinTimestamp] = useState(0);
   const [maxTimestamp, setMaxTimestamp] = useState(0);
   const [heatmapPoints, setHeatmapPoints] = useState<{ lat: number; lng: number; count: number }[]>([]);
+  const [uniqueVessels, setUniqueVessels] = useState<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   /** Fetch available Parquet files */
@@ -162,6 +163,18 @@ function App() {
     const points = await res.json();
     setHeatmapPoints(points);
   };
+
+  const loadUniqueVessels = async () => {
+    if (!selectedFile) return;
+
+    const res = await fetch(
+      `http://localhost:8000/unique-vessels?file=${encodeURIComponent(selectedFile)}`
+    );
+
+    const data = await res.json();
+    setUniqueVessels(data.unique_vessels);
+  };
+
 
   /** Filter AIS data */
   const filteredData = aisData.filter((r) => {
@@ -382,7 +395,21 @@ function App() {
 
         </MapContainer>
         <SpeedLegend />
+
       </div>
+        <hr style={{ margin: "2rem 0" }} />
+
+        <h2>Unique Vessels (Statistics)</h2>
+
+        <button onClick={loadUniqueVessels}>
+          Load Unique Vessel Count
+        </button>
+
+        {uniqueVessels !== null && (
+          <p>
+            <strong>Unique vessels:</strong> {uniqueVessels}
+          </p>
+        )}
     </div>
   );
 }
