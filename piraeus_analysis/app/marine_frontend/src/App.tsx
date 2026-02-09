@@ -34,6 +34,10 @@ function App() {
     localStorage.getItem("lastSelectedParquet")
   );
 
+  type LoadMode = "index" | "time";
+  const [loadMode, setLoadMode] = useState<LoadMode>("time");
+
+
   const [startIdx, setStartIdx] = useState(0);
   const [endIdx, setEndIdx] = useState(100);
 
@@ -240,28 +244,84 @@ function App() {
           🔄
         </button>
 
-        <input
-          type="number"
-          value={startIdx}
-          onChange={(e) => setStartIdx(Number(e.target.value))}
-          disabled={loading}
-        />
 
-        <input
-          type="number"
-          value={endIdx}
-          onChange={(e) => setEndIdx(Number(e.target.value))}
-          disabled={loading}
-        />
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+  <label>
+    <input
+      type="radio"
+      checked={loadMode === "index"}
+      onChange={() => setLoadMode("index")}
+    />
+    By index
+  </label>
 
-        <button onClick={handleLoad} disabled={loading}>
-          Load rows
-        </button>
+  <label>
+    <input
+      type="radio"
+      checked={loadMode === "time"}
+      onChange={() => setLoadMode("time")}
+    />
+    By time
+  </label>
+</div>
+          {loadMode === "index" && (
+  <>
+    <input
+      type="number"
+      value={startIdx}
+      onChange={(e) => setStartIdx(Number(e.target.value))}
+      disabled={loading}
+    />
+
+    <input
+      type="number"
+      value={endIdx}
+      onChange={(e) => setEndIdx(Number(e.target.value))}
+      disabled={loading}
+    />
+
+    <button onClick={handleLoad} disabled={loading}>
+      Load rows
+    </button>
+  </>
+)}
+
+{loadMode === "time" && timeRange && (
+  <div style={{ marginBottom: "1rem" }}>
+    <label>
+      Start: {new Date(timeRange[0]).toLocaleString()}
+      <input
+        type="range"
+        min={minTimestamp}
+        max={timeRange[1]}
+        value={timeRange[0]}
+        onChange={(e) =>
+          setTimeRange([Number(e.target.value), timeRange[1]])
+        }
+      />
+    </label>
+
+    <label>
+      End: {new Date(timeRange[1]).toLocaleString()}
+      <input
+        type="range"
+        min={timeRange[0]}
+        max={maxTimestamp}
+        value={timeRange[1]}
+        onChange={(e) =>
+          setTimeRange([timeRange[0], Number(e.target.value)])
+        }
+      />
+    </label>
+
+    <button onClick={handleLoadByTime} disabled={loading}>
+      Load Time Window
+    </button>
+  </div>
+)}
 
 
-        <button onClick={handleLoadByTime} disabled={loading}>
-          Load Time Window
-        </button>
+  
 
         {loading && (
           <>
@@ -299,42 +359,14 @@ function App() {
       </label>
 
 
-      <LoadingButton onClick={loadHeatmap} loading={loading}>
-        Load Heatmap
-      </LoadingButton>
+      {loadMode === "time" && (
+        <LoadingButton onClick={loadHeatmap} loading={loading}>
+          Load Heatmap
+        </LoadingButton>
+      )}
 
-      <div style={{ marginBottom: "1rem" }}>
-        {timeRange && (
-          <>
-            <label>
-              Start: {new Date(timeRange[0]).toLocaleString()}
-              <input
-                type="range"
-                min={minTimestamp}
-                max={timeRange[1]}
-                value={timeRange[0]}
-                onChange={(e) =>
-                  setTimeRange([Number(e.target.value), timeRange[1]])
-                }
-              />
-            </label>
 
-            <label>
-              End: {new Date(timeRange[1]).toLocaleString()}
-              <input
-                type="range"
-                min={timeRange[0]}
-                max={maxTimestamp}
-                value={timeRange[1]}
-                onChange={(e) =>
-                  setTimeRange([timeRange[0], Number(e.target.value)])
-                }
-              />
-            </label>
-          </>
-        )}
-
-      </div>
+      
 
       <div style={{ height: "500px", width: "100%" }}>
         <MapContainer center={mapCenter} zoom={12} style={{ height: "100%" }}>
