@@ -1,6 +1,6 @@
 # marine_backend/routes/stream_rows.py
 from fastapi import APIRouter, Query
-# from marine_backend.core.readers import read_row, read_multiple_files
+from marine_backend.core.readers import read_row
 import json
 from fastapi.responses import StreamingResponse
 from marine_backend.utils.data_process import sanitize_row

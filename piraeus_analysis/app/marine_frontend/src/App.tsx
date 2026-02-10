@@ -15,6 +15,8 @@ import { computeArrow } from "./components/Arrows";
 import { LoadingButton } from "./components/LoadingButton";
 import LoadModeSelector from "./components/LoadMode";
 import UniqueVesselSelector from "./components/analysis/UniqueVesselSelector";
+import VesselSelector from "./components/analysis/VesselSelector";
+import FileSelector from "./components/FileSelector";
 
 
 type AISRow = {
@@ -38,6 +40,7 @@ function App() {
 
   type LoadMode = "index" | "time";
   const [loadMode, setLoadMode] = useState<LoadMode>("time");
+  const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
 
 
   const [startIdx, setStartIdx] = useState(0);
@@ -170,13 +173,24 @@ function App() {
     setHeatmapPoints(points);
   };
 
- 
+  const fetchPredictedTrajectory = async () => {
+    if (!selectedFile || !selectedVessel || !timeRange) return;
+
+    const [start_ts, end_ts] = timeRange;
+    const res = await fetch(
+      `http://localhost:8000/predict_trajectory?file=${encodeURIComponent(selectedFile)}&start_ts=${start_ts}&end_ts=${end_ts}&vessel_id=${encodeURIComponent(selectedVessel)}`
+    );
+    const data = await res.json();
+    console.log("Predicted trajectory:", data);
+  };
+
 
 
   /** Filter AIS data */
   const filteredData = aisData.filter((r) => {
     if (showOnlyStopped && r.speed !== 0) return false;
     if (r.t < timeRange[0] || r.t > timeRange[1]) return false;
+    if (selectedVessel && r.vessel_id !== selectedVessel) return false;
     console.log("r: ", r);
     return true;
   });
@@ -192,7 +206,7 @@ function App() {
     fetchFiles();
   }, []);
 
-  // Example: initialize min/max timestamps
+  // initialize min/max timestamps
   useEffect(() => {
     if (aisData.length > 0) {
       const ts = aisData.map((r) => r.t);
@@ -220,25 +234,17 @@ function App() {
   return (
     <div style={{ padding: "1rem", maxWidth: "900px", margin: "0 auto" }}>
       <h1 style={{ marginBottom: "2rem", textAlign: "center" }}>Marine AIS Data</h1>
-      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem" }}>
-        <select
-          value={selectedFile || ""}
-          onChange={(e) => setSelectedFile(e.target.value)}
-          disabled={loading}
-        >
-          {files.map((f) => (
-            <option key={f.name} value={f.name}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={fetchFiles} disabled={loading}>
-          🔄
-        </button>
+      <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column",  gap: "0.5rem" }}>
+        <FileSelector
+          files={files}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          loading={loading}
+          onClick={fetchFiles}
+        />
 
 
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div style={{ display: "flex",flexDirection: "column" , gap: "0.5rem", alignItems: "center", flexFlow: "wrap", justifyContent: "center" }}>
         <LoadModeSelector
           loading={loading}
           minTimestamp={minTimestamp}   
@@ -247,8 +253,16 @@ function App() {
           onLoadByTime={handleLoadByTime} 
         />
 
+        <VesselSelector
+          aisData={aisData}
+          loading={loading}
+          selectedVessel={selectedVessel}
+          onSelectVessel={setSelectedVessel}
+        />
 
-  
+        <LoadingButton onClick={fetchPredictedTrajectory} loading={loading}>
+          Predict Trajectory
+        </LoadingButton>
 
         {loading && (
           <>
@@ -359,6 +373,7 @@ function App() {
       </div>
         <hr style={{ margin: "2rem 0" }} />
         <UniqueVesselSelector files={files} loading={loading} />
+
 
     </div>
   );

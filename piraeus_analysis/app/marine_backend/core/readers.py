@@ -17,27 +17,54 @@ for f in parquet_files:
         df = table.to_pandas()
         _all_rows.extend(df.to_dict(orient="records"))
 
-def read_time_window(file: str, start_ts: int, end_ts: int) -> pd.DataFrame:
+def read_time_window(file: str, start_ts: int, end_ts: int) -> list[dict]:
     """
     Return rows with t in [start_ts, end_ts] from a single parquet file.
+    Avoids pandas conversion.
     """
     pq_file = pq.ParquetFile(PARQUET_DIR / file)
-    frames = []
+    rows = []
 
     for g in range(pq_file.num_row_groups):
         table = pq_file.read_row_group(g)
-        df = table.to_pandas()
 
-        col = "t" if "t" in df.columns else "timestamp"
-        mask = (df[col] >= start_ts) & (df[col] <= end_ts)
+        # Determine timestamp column
+        col_name = "t" if "t" in table.column_names else "timestamp"
+        col_data = table[col_name].to_numpy()
+
+        # Mask rows in the time range
+        mask = (col_data >= start_ts) & (col_data <= end_ts)
 
         if mask.any():
-            frames.append(df.loc[mask])
+            # Slice the table with PyArrow
+            selected_table = table.filter(pa.compute.field(col_name).ge(start_ts)
+                                          & pa.compute.field(col_name).le(end_ts))
+            # Convert to dict directly
+            rows.extend([sanitize_row(r) for r in selected_table.to_pylist()])
 
-    if frames:
-        return pd.concat(frames, ignore_index=True)
+    return rows
 
-    return pd.DataFrame()
+# def read_time_window(file: str, start_ts: int, end_ts: int) -> pd.DataFrame:
+#     """
+#     Return rows with t in [start_ts, end_ts] from a single parquet file.
+#     """
+#     pq_file = pq.ParquetFile(PARQUET_DIR / file)
+#     frames = []
+
+#     for g in range(pq_file.num_row_groups):
+#         table = pq_file.read_row_group(g)
+#         df = table.to_pandas()
+
+#         col = "t" if "t" in df.columns else "timestamp"
+#         mask = (df[col] >= start_ts) & (df[col] <= end_ts)
+
+#         if mask.any():
+#             frames.append(df.loc[mask])
+
+#     if frames:
+#         return pd.concat(frames, ignore_index=True)
+
+#     return pd.DataFrame()
 
 # def read_multiple_files(files: list[str], start_ts: int = None, end_ts: int = None) -> list[dict]:
 #     frames = []
