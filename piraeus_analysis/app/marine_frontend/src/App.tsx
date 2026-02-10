@@ -46,8 +46,8 @@ function App() {
   const [startIdx, setStartIdx] = useState(0);
   const [endIdx, setEndIdx] = useState(100);
 
-  const [showHeading, setShowHeading] = useState(true);
-  const [showCourse, setShowCourse] = useState(true);
+  const [showHeading, setShowHeading] = useState(false);
+  const [showCourse, setShowCourse] = useState(false);
 
   const [showOnlyStopped, setShowOnlyStopped] = useState(false);
   const [loading, setLoading] = useState(false);
