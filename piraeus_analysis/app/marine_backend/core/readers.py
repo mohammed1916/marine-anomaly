@@ -1,8 +1,10 @@
 # marine_backend/core/readers.py
 import pandas as pd
 from marine_backend.core.parquet_store import PARQUET_DIR
-import pyarrow.parquet as pq
 from marine_backend.utils.data_process import sanitize_row
+import pyarrow.parquet as pq 
+import pyarrow.compute as pc
+import pyarrow as pa
 
 # Load all Parquet files
 parquet_files = list(PARQUET_DIR.glob("*.parquet"))
@@ -17,32 +19,41 @@ for f in parquet_files:
         df = table.to_pandas()
         _all_rows.extend(df.to_dict(orient="records"))
 
-def read_time_window(file: str, start_ts: int, end_ts: int) -> list[dict]:
+def read_time_window(file_path: str, start_ts: int, end_ts: int) -> pa.Table:
     """
-    Return rows with t in [start_ts, end_ts] from a single parquet file.
-    Avoids pandas conversion.
+    Read a parquet file and filter rows within a time window.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the parquet file.
+    start_ts : int
+        Start timestamp (inclusive).
+    end_ts : int
+        End timestamp (inclusive).
+
+    Returns
+    -------
+    filtered_table : pyarrow.Table
+        Table filtered to rows where 't' is in [start_ts, end_ts].
     """
-    pq_file = pq.ParquetFile(PARQUET_DIR / file)
-    rows = []
+    # Load parquet file as table
+    table = pq.read_table(PARQUET_DIR / file_path)
 
-    for g in range(pq_file.num_row_groups):
-        table = pq_file.read_row_group(g)
+    # Combine chunks for the 't' column to avoid ChunkedArray errors
+    col = table["t"].combine_chunks()
 
-        # Determine timestamp column
-        col_name = "t" if "t" in table.column_names else "timestamp"
-        col_data = table[col_name].to_numpy()
+    # Create mask using pyarrow.compute functions
+    mask = pc.and_(
+        pc.greater_equal(col, start_ts),
+        pc.less_equal(col, end_ts)
+    )
 
-        # Mask rows in the time range
-        mask = (col_data >= start_ts) & (col_data <= end_ts)
+    # Filter table by mask
+    filtered_table = table.filter(mask)
 
-        if mask.any():
-            # Slice the table with PyArrow
-            selected_table = table.filter(pa.compute.field(col_name).ge(start_ts)
-                                          & pa.compute.field(col_name).le(end_ts))
-            # Convert to dict directly
-            rows.extend([sanitize_row(r) for r in selected_table.to_pylist()])
+    return filtered_table
 
-    return rows
 
 # def read_time_window(file: str, start_ts: int, end_ts: int) -> pd.DataFrame:
 #     """

@@ -101,7 +101,24 @@ function App() {
           // console.log(line)
           const msg = JSON.parse(line);
           setProgress(msg.progress);
-          setAisData((prev) => [...prev, msg.row]);
+          // setAisData((prev) => [...prev, msg.row]);
+          const chunkSize = 500; // adjust for your memory/UX
+          let tempRows: AISRow[] = [];
+
+          for (const line of lines) {
+            const msg = JSON.parse(line);
+            setProgress(msg.progress);
+            tempRows.push(msg.row);
+
+            if (tempRows.length >= chunkSize) {
+              setAisData((prev) => [...prev, ...tempRows]);
+              tempRows = [];
+            }
+          }
+
+          // flush remaining
+          if (tempRows.length > 0) setAisData((prev) => [...prev, ...tempRows]);
+
         }
       }
     } catch (e) {
@@ -217,19 +234,26 @@ function App() {
   }, [aisData]);
 
   useEffect(() => {
-    console.log("selectedFile: ", selectedFile);
-    if (!selectedFile) return;
+    const fetchTimeBounds = async (file: string) => {
+      const res = await fetch(
+        `http://localhost:8000/rows/time_bounds?file=${encodeURIComponent(file)}`
+      );
+      if (!res.ok) return;
+      const { min, max } = await res.json();
+      setMinTimestamp(min);
+      setMaxTimestamp(max);
+      setTimeRange([min, max]);
+    };
 
-    fetch(
-      `http://localhost:8000/rows/time_bounds?file=${encodeURIComponent(selectedFile)}`
-    )
-      .then(r => r.json())
-      .then(({ min, max }) => {
-        setMinTimestamp(min);
-        setMaxTimestamp(max);
-        setTimeRange([min, max]);
-      });
-  }, [selectedFile]);
+    if (selectedFile) {
+      fetchTimeBounds(selectedFile);
+    } else if (files.length > 0) {
+      // no selected file yet, pick first
+      setSelectedFile(files[0].name);
+      fetchTimeBounds(files[0].name);
+    }
+  }, [selectedFile, files]);
+
 
   return (
     <div style={{ padding: "1rem", maxWidth: "900px", margin: "0 auto" }}>
