@@ -1,6 +1,7 @@
 // marine_frontend/src/App.tsx
 import { useState, useEffect, useRef, Fragment } from "react";
 import { MapContainer, TileLayer, CircleMarker, Polyline} from "react-leaflet";
+import { HeatmapLayer } from "react-leaflet-heatmap-layer-v3";
 import "leaflet/dist/leaflet.css";
 import type { LatLngExpression } from "leaflet";
 import {
@@ -11,6 +12,12 @@ import {
 } from "./components/SpeedLegend";
 
 import { computeArrow } from "./components/Arrows";
+import { LoadingButton } from "./components/LoadingButton";
+import LoadModeSelector from "./components/LoadMode";
+import UniqueVesselSelector from "./components/analysis/UniqueVesselSelector";
+import VesselSelector from "./components/analysis/VesselSelector";
+import FileSelector from "./components/FileSelector";
+
 
 type AISRow = {
   t: number;
@@ -31,9 +38,16 @@ function App() {
     localStorage.getItem("lastSelectedParquet")
   );
 
+  type LoadMode = "index" | "time";
+  const [loadMode, setLoadMode] = useState<LoadMode>("time");
+  const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
+
+
   const [startIdx, setStartIdx] = useState(0);
   const [endIdx, setEndIdx] = useState(100);
 
+  const [showHeading, setShowHeading] = useState(false);
+  const [showCourse, setShowCourse] = useState(false);
 
   const [showOnlyStopped, setShowOnlyStopped] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,6 +55,8 @@ function App() {
   const [timeRange, setTimeRange] = useState<[number, number] | null>(null);
   const [minTimestamp, setMinTimestamp] = useState(0);
   const [maxTimestamp, setMaxTimestamp] = useState(0);
+  const [heatmapPoints, setHeatmapPoints] = useState<{ lat: number; lng: number; count: number }[]>([]);
+  const [uniqueVessels, setUniqueVessels] = useState<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   /** Fetch available Parquet files */
@@ -85,7 +101,24 @@ function App() {
           // console.log(line)
           const msg = JSON.parse(line);
           setProgress(msg.progress);
-          setAisData((prev) => [...prev, msg.row]);
+          // setAisData((prev) => [...prev, msg.row]);
+          const chunkSize = 500; // adjust for your memory/UX
+          let tempRows: AISRow[] = [];
+
+          for (const line of lines) {
+            const msg = JSON.parse(line);
+            setProgress(msg.progress);
+            tempRows.push(msg.row);
+
+            if (tempRows.length >= chunkSize) {
+              setAisData((prev) => [...prev, ...tempRows]);
+              tempRows = [];
+            }
+          }
+
+          // flush remaining
+          if (tempRows.length > 0) setAisData((prev) => [...prev, ...tempRows]);
+
         }
       }
     } catch (e) {
@@ -149,10 +182,32 @@ function App() {
     setLoading(false);
   };
 
+  const loadHeatmap = async () => {
+  const res = await fetch(
+      `http://localhost:8000/heatmap?file=${encodeURIComponent(selectedFile)}&start_ts=${timeRange[0]}&end_ts=${timeRange[1]}&cell_size=0.001`
+    );
+    const points = await res.json();
+    setHeatmapPoints(points);
+  };
+
+  const fetchPredictedTrajectory = async () => {
+    if (!selectedFile || !selectedVessel || !timeRange) return;
+
+    const [start_ts, end_ts] = timeRange;
+    const res = await fetch(
+      `http://localhost:8000/predict_trajectory?file=${encodeURIComponent(selectedFile)}&start_ts=${start_ts}&end_ts=${end_ts}&vessel_id=${encodeURIComponent(selectedVessel)}`
+    );
+    const data = await res.json();
+    console.log("Predicted trajectory:", data);
+  };
+
+
+
   /** Filter AIS data */
   const filteredData = aisData.filter((r) => {
     if (showOnlyStopped && r.speed !== 0) return false;
     if (r.t < timeRange[0] || r.t > timeRange[1]) return false;
+    if (selectedVessel && r.vessel_id !== selectedVessel) return false;
     console.log("r: ", r);
     return true;
   });
@@ -168,7 +223,7 @@ function App() {
     fetchFiles();
   }, []);
 
-  // Example: initialize min/max timestamps
+  // initialize min/max timestamps
   useEffect(() => {
     if (aisData.length > 0) {
       const ts = aisData.map((r) => r.t);
@@ -179,62 +234,59 @@ function App() {
   }, [aisData]);
 
   useEffect(() => {
-    console.log("selectedFile: ", selectedFile);
-    if (!selectedFile) return;
+    const fetchTimeBounds = async (file: string) => {
+      const res = await fetch(
+        `http://localhost:8000/rows/time_bounds?file=${encodeURIComponent(file)}`
+      );
+      if (!res.ok) return;
+      const { min, max } = await res.json();
+      setMinTimestamp(min);
+      setMaxTimestamp(max);
+      setTimeRange([min, max]);
+    };
 
-    fetch(
-      `http://localhost:8000/rows/time_bounds?file=${encodeURIComponent(selectedFile)}`
-    )
-      .then(r => r.json())
-      .then(({ min, max }) => {
-        setMinTimestamp(min);
-        setMaxTimestamp(max);
-        setTimeRange([min, max]);
-      });
-  }, [selectedFile]);
+    if (selectedFile) {
+      fetchTimeBounds(selectedFile);
+    } else if (files.length > 0) {
+      // no selected file yet, pick first
+      setSelectedFile(files[0].name);
+      fetchTimeBounds(files[0].name);
+    }
+  }, [selectedFile, files]);
+
 
   return (
     <div style={{ padding: "1rem", maxWidth: "900px", margin: "0 auto" }}>
       <h1 style={{ marginBottom: "2rem", textAlign: "center" }}>Marine AIS Data</h1>
-      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem" }}>
-        <select
-          value={selectedFile || ""}
-          onChange={(e) => setSelectedFile(e.target.value)}
-          disabled={loading}
-        >
-          {files.map((f) => (
-            <option key={f.name} value={f.name}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={fetchFiles} disabled={loading}>
-          🔄
-        </button>
-
-        <input
-          type="number"
-          value={startIdx}
-          onChange={(e) => setStartIdx(Number(e.target.value))}
-          disabled={loading}
+      <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column",  gap: "0.5rem" }}>
+        <FileSelector
+          files={files}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          loading={loading}
+          onClick={fetchFiles}
         />
 
-        <input
-          type="number"
-          value={endIdx}
-          onChange={(e) => setEndIdx(Number(e.target.value))}
-          disabled={loading}
+
+        <div style={{ display: "flex",flexDirection: "column" , gap: "0.5rem", alignItems: "center", flexFlow: "wrap", justifyContent: "center" }}>
+        <LoadModeSelector
+          loading={loading}
+          minTimestamp={minTimestamp}   
+          maxTimestamp={maxTimestamp}   
+          onLoadByIndex={handleLoad}
+          onLoadByTime={handleLoadByTime} 
         />
 
-        <button onClick={handleLoad} disabled={loading}>
-          Load rows
-        </button>
+        <VesselSelector
+          aisData={aisData}
+          loading={loading}
+          selectedVessel={selectedVessel}
+          onSelectVessel={setSelectedVessel}
+        />
 
-
-        <button onClick={handleLoadByTime} disabled={loading}>
-          Load Time Window
-        </button>
+        <LoadingButton onClick={fetchPredictedTrajectory} loading={loading}>
+          Predict Trajectory
+        </LoadingButton>
 
         {loading && (
           <>
@@ -253,39 +305,34 @@ function App() {
         </label>
       </div>
 
+      <label style={{ marginLeft: "1rem" }}>
+        <input
+          type="checkbox"
+          checked={showHeading}
+          onChange={(e) => setShowHeading(e.target.checked)}
+        />
+        Show Heading
+      </label>
 
-      <div style={{ marginBottom: "1rem" }}>
-        {timeRange && (
-          <>
-            <label>
-              Start: {timeRange[0]}
-              <input
-                type="range"
-                min={minTimestamp}
-                max={timeRange[1]}
-                value={timeRange[0]}
-                onChange={(e) =>
-                  setTimeRange([Number(e.target.value), timeRange[1]])
-                }
-              />
-            </label>
+      <label style={{ marginLeft: "1rem" }}>
+        <input
+          type="checkbox"
+          checked={showCourse}
+          onChange={(e) => setShowCourse(e.target.checked)}
+        />
+        Show Course
+      </label>
 
-            <label>
-              End: {timeRange[1]}
-              <input
-                type="range"
-                min={timeRange[0]}
-                max={maxTimestamp}
-                value={timeRange[1]}
-                onChange={(e) =>
-                  setTimeRange([timeRange[0], Number(e.target.value)])
-                }
-              />
-            </label>
-          </>
-        )}
 
+      {loadMode === "time" && (
+        <LoadingButton onClick={loadHeatmap} loading={loading}>
+          Load Heatmap
+        </LoadingButton>
+      )}
       </div>
+
+
+      
 
       <div style={{ height: "500px", width: "100%" }}>
         <MapContainer center={mapCenter} zoom={12} style={{ height: "100%" }}>
@@ -293,7 +340,7 @@ function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap contributors"
           />
-          {filteredData.map((row, i) => (
+          {/* {filteredData.map((row, i) => (
             <CircleMarker
               key={i}
               center={[row.lat, row.lon]}
@@ -304,7 +351,7 @@ function App() {
                 fillOpacity: 0.9,
               }}
             />
-          ))}
+          ))} */}
           {filteredData.map((row, i) => (
             <Fragment key={i}>
               <CircleMarker
@@ -318,7 +365,7 @@ function App() {
               />
 
               {/* Heading arrow - Blue */}
-              {row.heading !== undefined && (
+              {showHeading && row.heading !== undefined && (
                 <Polyline
                   positions={computeArrow(row.lat, row.lon, row.heading, 0.002)}
                   pathOptions={{ color: "blue", weight: 2 }}
@@ -326,7 +373,7 @@ function App() {
               )}
 
               {/* Course arrow - Red */}
-              {row.course !== undefined && (
+              {showCourse && row.course !== undefined && (
                 <Polyline
                   positions={computeArrow(row.lat, row.lon, row.course, 0.002)}
                   pathOptions={{ color: "red", weight: 2 }}
@@ -334,10 +381,24 @@ function App() {
               )}
             </Fragment>
           ))}
+          <HeatmapLayer
+            points={heatmapPoints ||[]}
+            longitudeExtractor={(p) => p[1]}
+            latitudeExtractor={(p) => p[0]}
+            intensityExtractor={(p) => p[2]}
+            radius={15}       // adjust size
+            blur={20}         // smoothness
+            max={1}           // max intensity for normalization
+          />
 
         </MapContainer>
         <SpeedLegend />
+
       </div>
+        <hr style={{ margin: "2rem 0" }} />
+        <UniqueVesselSelector files={files} loading={loading} />
+
+
     </div>
   );
 }
