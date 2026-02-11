@@ -1,0 +1,36 @@
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\chronos_trajectory_predictions\lat_model'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       6.68 GB / 15.71 GB (42.5%)
+Disk Space Avail:   85.72 GB / 929.32 GB (9.2%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'freq': '30s',
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': 'lat',
+ 'verbosity': 2}
+
+train_data with frequency 'IRREG' has been resampled to frequency '30s'.

@@ -1,0 +1,172 @@
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\AutogluonModels\ag-20260210_034822'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       4.59 GB / 15.71 GB (29.2%)
+Disk Space Avail:   81.18 GB / 929.32 GB (8.7%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': ['lat', 'lon'],
+ 'verbosity': 2}
+
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\AutogluonModels\ag-20260210_035745'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       5.12 GB / 15.71 GB (32.6%)
+Disk Space Avail:   81.41 GB / 929.32 GB (8.8%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': ['lat', 'lon'],
+ 'verbosity': 2}
+
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\AutogluonModels\ag-20260210_040212'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       5.25 GB / 15.71 GB (33.4%)
+Disk Space Avail:   81.40 GB / 929.32 GB (8.8%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': 'lat',
+ 'verbosity': 2}
+
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\AutogluonModels\ag-20260210_042745'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       5.11 GB / 15.71 GB (32.5%)
+Disk Space Avail:   65.81 GB / 929.32 GB (7.1%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'freq': '30s',
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': ['lat', 'lon'],
+ 'verbosity': 2}
+
+Beginning AutoGluon training...
+AutoGluon will save models to 'c:\Users\BBBS-AI-01\d\anomaly\piraeus_analysis\AutogluonModels\ag-20260210_043118'
+=================== System Info ===================
+AutoGluon Version:  1.5.0
+Python Version:     3.12.4
+Operating System:   Windows
+Platform Machine:   AMD64
+Platform Version:   10.0.26200
+CPU Count:          24
+Pytorch Version:    2.9.1+cu126
+CUDA Version:       12.6
+GPU Memory:         GPU 0: 8.00/8.00 GB
+Total GPU Memory:   Free: 8.00 GB, Allocated: 0.00 GB, Total: 8.00 GB
+GPU Count:          1
+Memory Avail:       4.85 GB / 15.71 GB (30.9%)
+Disk Space Avail:   65.57 GB / 929.32 GB (7.1%)
+===================================================
+Setting presets to: chronos2
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': MASE,
+ 'freq': '30s',
+ 'hyperparameters': {'Chronos2': {'model_path': 'autogluon/chronos-2'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 5,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': ['lat', 'lon'],
+ 'verbosity': 2}
+
